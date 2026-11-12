@@ -1,0 +1,181 @@
+Step 1. Check whether MongoDB is running
+Open PowerShell and execute:
+Get-Service MongoDB
+
+
+If the status is Running, MongoDB is ready.
+
+If the status is Stopped, run PowerShell as Administrator and execute:
+Start-Service MongoDB
+
+
+If it says the service does not exist, tell me. We'll start MongoDB manually instead.
+Step 2. Open VS Code
+1. Open VS Code.
+2. Create a folder named MongoDB_Experiment7.
+3. Open that folder.
+4. Create a Python file named:
+student_app.py
+
+
+Step 3. Install PyMongo
+Open the VS Code terminal:
+
+Terminal → New Terminal
+
+Execute:
+python -m pip install pymongo
+
+
+Wait until installation finishes.
+Step 4. Paste the code
+
+import tkinter as tk
+from tkinter import messagebox
+from pymongo import MongoClient
+
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+
+# Select database and collection
+db = client["collegeDB"]
+collection = db["students"]
+
+
+# Insert student details
+def insert_student():
+    name = name_entry.get()
+    roll = roll_entry.get()
+    branch = branch_entry.get()
+    cgpa = cgpa_entry.get()
+
+    if not (name and roll and branch and cgpa):
+        messagebox.showwarning("Input Error", "All fields are required!")
+        return
+
+    try:
+        cgpa = float(cgpa)
+
+        collection.insert_one({
+            "name": name,
+            "roll": roll,
+            "branch": branch,
+            "cgpa": cgpa
+        })
+
+        messagebox.showinfo("Success", "Student record inserted.")
+
+        name_entry.delete(0, tk.END)
+        roll_entry.delete(0, tk.END)
+        branch_entry.delete(0, tk.END)
+        cgpa_entry.delete(0, tk.END)
+
+    except ValueError:
+        messagebox.showerror("Invalid Input", "CGPA must be a number.")
+
+
+# Display all students
+def display_students():
+    students = collection.find()
+
+    result_text.delete("1.0", tk.END)
+
+    for s in students:
+        result_text.insert(
+            tk.END,
+            f"{s['name']} | {s['roll']} | {s['branch']} | {s['cgpa']}\n"
+        )
+
+
+# Create GUI window
+app = tk.Tk()
+app.title("Student Database App (MongoDB)")
+
+tk.Label(app, text="Name:").grid(row=0, column=0)
+name_entry = tk.Entry(app)
+name_entry.grid(row=0, column=1)
+
+tk.Label(app, text="Roll No:").grid(row=1, column=0)
+roll_entry = tk.Entry(app)
+roll_entry.grid(row=1, column=1)
+
+tk.Label(app, text="Branch:").grid(row=2, column=0)
+branch_entry = tk.Entry(app)
+branch_entry.grid(row=2, column=1)
+
+tk.Label(app, text="CGPA:").grid(row=3, column=0)
+cgpa_entry = tk.Entry(app)
+cgpa_entry.grid(row=3, column=1)
+
+tk.Button(
+    app,
+    text="Insert Student",
+    command=insert_student
+).grid(row=4, column=0, columnspan=2, pady=10)
+
+tk.Button(
+    app,
+    text="Show All Students",
+    command=display_students
+).grid(row=5, column=0, columnspan=2, pady=5)
+
+result_text = tk.Text(app, width=50, height=10)
+result_text.grid(row=6, column=0, columnspan=2, padx=10, pady=10)
+
+app.mainloop()
+
+
+
+Step 5. Run the program
+In the VS Code terminal, execute:
+python student_app.py
+
+
+A window should appear with:
+- Name
+- Roll No
+- Branch
+- CGPA
+- Insert Student button
+- Show All Students button
+
+
+
+Step 6. Insert student records
+Enter the following sample data:
+Field	First student
+Name	Rahul
+Roll No	101
+Branch	CSE
+CGPA	8.5
+
+Click Insert Student.
+
+You should get a success message.
+
+Insert another student:
+Field	Second student
+Name	Priya
+Roll No	102
+Branch	ECE
+CGPA	9.1
+
+Step 7. Display all records
+Click Show All Students.
+
+Expected output:
+Rahul | 101 | CSE | 8.5
+Priya | 102 | ECE | 9.1
+
+
+Step 8. Verify in MongoDB
+Open another PowerShell terminal and execute:
+mongosh
+
+
+Inside mongosh:
+use collegeDB
+db.students.find()
+
+
+You should see the student documents stored in MongoDB.
