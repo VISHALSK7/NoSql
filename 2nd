@@ -1,0 +1,714 @@
+Step 1. Check whether MongoDB is running
+Open PowerShell and execute:
+Get-Service MongoDB
+
+
+If the status is Running, MongoDB is ready.
+
+If the status is Stopped, run PowerShell as Administrator and execute:
+Start-Service MongoDB
+
+
+If it says the service does not exist, tell me. We'll start MongoDB manually instead.
+Step 2. Open VS Code
+1. Open VS Code.
+2. Create a folder named MongoDB_Experiment7.
+3. Open that folder.
+4. Create a Python file named:
+student_app.py
+
+
+Step 3. Install PyMongo
+Open the VS Code terminal:
+
+Terminal → New Terminal
+
+Execute:
+python -m pip install pymongo
+
+
+Wait until installation finishes.
+Step 4. Paste the code
+
+import tkinter as tk
+from tkinter import messagebox
+from pymongo import MongoClient
+
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+
+# Select database and collection
+db = client["collegeDB"]
+collection = db["students"]
+
+
+# Insert student details
+def insert_student():
+    name = name_entry.get()
+    roll = roll_entry.get()
+    branch = branch_entry.get()
+    cgpa = cgpa_entry.get()
+
+    if not (name and roll and branch and cgpa):
+        messagebox.showwarning("Input Error", "All fields are required!")
+        return
+
+    try:
+        cgpa = float(cgpa)
+
+        collection.insert_one({
+            "name": name,
+            "roll": roll,
+            "branch": branch,
+            "cgpa": cgpa
+        })
+
+        messagebox.showinfo("Success", "Student record inserted.")
+
+        name_entry.delete(0, tk.END)
+        roll_entry.delete(0, tk.END)
+        branch_entry.delete(0, tk.END)
+        cgpa_entry.delete(0, tk.END)
+
+    except ValueError:
+        messagebox.showerror("Invalid Input", "CGPA must be a number.")
+
+
+# Display all students
+def display_students():
+    students = collection.find()
+
+    result_text.delete("1.0", tk.END)
+
+    for s in students:
+        result_text.insert(
+            tk.END,
+            f"{s['name']} | {s['roll']} | {s['branch']} | {s['cgpa']}\n"
+        )
+
+
+# Create GUI window
+app = tk.Tk()
+app.title("Student Database App (MongoDB)")
+
+tk.Label(app, text="Name:").grid(row=0, column=0)
+name_entry = tk.Entry(app)
+name_entry.grid(row=0, column=1)
+
+tk.Label(app, text="Roll No:").grid(row=1, column=0)
+roll_entry = tk.Entry(app)
+roll_entry.grid(row=1, column=1)
+
+tk.Label(app, text="Branch:").grid(row=2, column=0)
+branch_entry = tk.Entry(app)
+branch_entry.grid(row=2, column=1)
+
+tk.Label(app, text="CGPA:").grid(row=3, column=0)
+cgpa_entry = tk.Entry(app)
+cgpa_entry.grid(row=3, column=1)
+
+tk.Button(
+    app,
+    text="Insert Student",
+    command=insert_student
+).grid(row=4, column=0, columnspan=2, pady=10)
+
+tk.Button(
+    app,
+    text="Show All Students",
+    command=display_students
+).grid(row=5, column=0, columnspan=2, pady=5)
+
+result_text = tk.Text(app, width=50, height=10)
+result_text.grid(row=6, column=0, columnspan=2, padx=10, pady=10)
+
+app.mainloop()
+
+
+
+Step 5. Run the program
+In the VS Code terminal, execute:
+python student_app.py
+
+
+A window should appear with:
+- Name
+- Roll No
+- Branch
+- CGPA
+- Insert Student button
+- Show All Students button
+
+
+
+Step 6. Insert student records
+Enter the following sample data:
+Field	First student
+Name	Rahul
+Roll No	101
+Branch	CSE
+CGPA	8.5
+
+Click Insert Student.
+
+You should get a success message.
+
+Insert another student:
+Field	Second student
+Name	Priya
+Roll No	102
+Branch	ECE
+CGPA	9.1
+
+Step 7. Display all records
+Click Show All Students.
+
+Expected output:
+Rahul | 101 | CSE | 8.5
+Priya | 102 | ECE | 9.1
+
+
+Step 8. Verify in MongoDB
+Open another PowerShell terminal and execute:
+mongosh
+
+
+Inside mongosh:
+use collegeDB
+db.students.find()
+
+
+You should see the student documents stored in MongoDB.
+.....................................................................................................................
+6
+Part 1 — Prepare MongoDB
+Step 1. Open PowerShell as Administrator
+First, add MongoDB 8.3 to your PATH:
+$env:Path += ";C:\Program Files\MongoDB\Server\8.3\bin"
+
+
+Verify that MongoDB is accessible:
+mongod --version
+
+
+Also check:
+mongos --version
+
+
+Both commands should display version information.
+Step 2. Create the required folders
+Run these commands:
+New-Item -ItemType Directory -Force C:\data\configdb
+New-Item -ItemType Directory -Force C:\data\shard1
+New-Item -ItemType Directory -Force C:\data\shard2
+
+
+These folders will store the data for the three MongoDB servers.
+Step 3. Check whether port 27017 is already occupied
+Run:
+Get-Service MongoDB
+
+
+If the service is running, stop it before starting mongos on port 27017:
+Stop-Service MongoDB
+
+
+If the service doesn't exist, that's okay. Continue.
+
+We need port 27017 available for the mongos router.
+
+Part 2 — Start the config server
+Step 4. Start the config server
+Open a new PowerShell tab.
+
+Run:
+$env:Path += ";C:\Program Files\MongoDB\Server\8.3\bin"
+
+
+Then:
+mongod --configsvr --replSet configReplSet --dbpath C:\data\configdb --port 27019
+
+
+Expected
+ MongoDB starts and displays server logs.
+
+Keep this terminal open. Do not close it.
+Step 5. Initialize the config server
+Open another PowerShell tab.
+
+Run:
+mongosh --port 27019
+
+
+You will enter the MongoDB shell.
+
+Now execute:
+rs.initiate({
+    _id: "configReplSet",
+    configsvr: true,
+    members: [
+        { _id: 0, host: "localhost:27019" }
+    ]
+})
+
+
+Wait a few seconds, then check:
+rs.status()
+
+
+Look for:
+stateStr: "PRIMARY"
+
+
+This means the config server's replica set is initialized.
+
+Now exit:
+exit
+
+
+Keep the config server's original PowerShell terminal open.
+
+Part 3 — Start Shard 1
+Step 6. Start the first shard server
+Open another PowerShell tab.
+
+Run:
+$env:Path += ";C:\Program Files\MongoDB\Server\8.3\bin"
+
+
+Then:
+mongod --shardsvr --replSet shard1Repl --dbpath C:\data\shard1 --port 27018
+
+
+Keep this terminal open.
+Step 7. Initialize Shard 1
+Open another PowerShell tab:
+mongosh --port 27018
+
+
+Inside mongosh, execute:
+rs.initiate({
+    _id: "shard1Repl",
+    members: [
+        { _id: 0, host: "localhost:27018" }
+    ]
+})
+
+
+Wait for initialization.
+
+Check:
+rs.status()
+
+
+Look for PRIMARY.
+
+Then:
+exit
+
+
+
+Part 4 — Start Shard 2
+Step 8. Start the second shard server
+Open another PowerShell tab.
+
+Run:
+$env:Path += ";C:\Program Files\MongoDB\Server\8.3\bin"
+
+
+Then:
+mongod --shardsvr --replSet shard2Repl --dbpath C:\data\shard2 --port 27020
+
+
+Keep this terminal open.
+Step 9. Initialize Shard 2
+Open another PowerShell tab:
+mongosh --port 27020
+
+
+Execute:
+rs.initiate({
+    _id: "shard2Repl",
+    members: [
+        { _id: 0, host: "localhost:27020" }
+    ]
+})
+
+
+Wait for initialization.
+
+Check:
+rs.status()
+
+
+Look for PRIMARY.
+
+Then:
+exit
+
+
+
+Part 5 — Start the Mongos Router
+Step 10. Start mongos
+Open another PowerShell tab.
+
+Run:
+$env:Path += ";C:\Program Files\MongoDB\Server\8.3\bin"
+
+
+Then execute:
+mongos --configdb configReplSet/localhost:27019 --port 27017
+
+
+Keep this terminal open.
+
+What is mongos?
+
+mongos is the router that receives database queries and forwards them to the appropriate shard.
+Step 11. Connect to the sharded cluster
+Open one final PowerShell tab.
+
+Execute:
+mongosh --port 27017
+
+
+You are now connected to the cluster through mongos.
+
+Add both shards:
+sh.addShard("shard1Repl/localhost:27018")
+
+
+sh.addShard("shard2Repl/localhost:27020")
+
+
+Check the cluster:
+sh.status()
+
+
+You should see both shard names:
+- shard1Repl
+- shard2Repl
+Sharded cluster initialized
+
+Part 6 — Create the database and insert records
+From now on, execute the database commands in the same mongosh window connected to port 27017.
+Step 12. Create/select the database
+use perfTestDB
+
+
+This selects the database named perfTestDB.
+Step 13. Create the unsharded collection
+db.movies_unsharded.drop()
+
+
+This removes an existing collection with that name, if present.
+
+Now insert one million movie records:
+for (let i = 0; i < 1000000; i++) {
+    db.movies_unsharded.insertOne({
+        title: "Movie " + i,
+        genre: (i % 5 === 0) ? "Action" : "Drama",
+        year: 2000 + (i % 20),
+        rating: Math.random() * 10
+    })
+}
+
+
+Wait until it finishes. Inserting one million documents individually can take several minutes or longer.
+Step 14. Enable sharding for the database
+sh.enableSharding("perfTestDB")
+
+
+This enables sharding for the database.
+Step 15. Create the sharded collection
+db.movies_sharded.drop()
+
+
+Now define the shard key:
+sh.shardCollection("perfTestDB.movies_sharded", { year: 1 })
+
+
+Here:
+- movies_sharded is the collection.
+- year is the shard key.
+- 1 means ascending order.
+Step 16. Insert one million records into the sharded collection
+Execute:
+for (let i = 0; i < 1000000; i++) {
+    db.movies_sharded.insertOne({
+        title: "Movie " + i,
+        genre: (i % 5 === 0) ? "Action" : "Drama",
+        year: 2000 + (i % 20),
+        rating: Math.random() * 10
+    })
+}
+
+
+Wait until it finishes.
+
+Part 7 — Compare query performance
+Now we compare the two collections using MongoDB's explain() method.
+Step 17. Equality query
+First, run this for the unsharded collection:
+db.movies_unsharded.find({ year: 2010 })
+.explain("executionStats").executionStats
+
+
+Then run this for the sharded collection:
+db.movies_sharded.find({ year: 2010 })
+.explain("executionStats").executionStats
+
+
+Compare these three values:
+Field	Meaning
+executionTimeMillis	Time taken by the query
+totalDocsExamined	Documents examined
+nReturned	Documents returned
+
+Step 18. Range query
+Unsharded collection:
+db.movies_unsharded.find({
+    year: { $gte: 2010, $lt: 2015 }
+}).explain("executionStats").executionStats
+
+
+Sharded collection:
+db.movies_sharded.find({
+    year: { $gte: 2010, $lt: 2015 }
+}).explain("executionStats").executionStats
+
+
+This query retrieves movies from 2010 to 2014.
+Step 19. Aggregation query
+Unsharded collection:
+db.movies_unsharded.aggregate([
+    { $match: { year: { $gte: 2010, $lt: 2015 } } },
+    {
+        $group: {
+            _id: "$genre",
+            avgRating: { $avg: "$rating" }
+        }
+    }
+]).explain("executionStats")
+
+
+Sharded collection:
+db.movies_sharded.aggregate([
+    { $match: { year: { $gte: 2010, $lt: 2015 } } },
+    {
+        $group: {
+            _id: "$genre",
+            avgRating: { $avg: "$rating" }
+        }
+    }
+]).explain("executionStats")
+
+
+This calculates the average movie rating for each genre.
+Step 20. Check shard distribution
+Run:
+sh.status()
+
+
+You can also inspect the collection's distribution:
+db.movies_sharded.getShardDistribution()
+
+
+This helps you understand how the documents are distributed across shards.
+..............................................................................................................................
+5
+a.Create & Use Database
+use LibraryDB
+
+//Books Collection
+db.createCollection("books", {
+    validator: {
+        $jsonSchema: {
+            bsonType: "object",
+            required: ["isbn", "title", "authorId", "publishedYear", "copiesAvailable"],
+            properties: {
+                isbn: { bsonType: "string", description: "must be a string and unique" },
+                title: { bsonType: "string" },
+                authorId: { bsonType: "int" },
+                publishedYear: { bsonType: "int", minimum: 1500, maximum: 2025 },
+                copiesAvailable: { bsonType: "int", minimum: 0 }
+            }
+        }
+    }
+})
+
+//Members Collection
+db.createCollection("members", {
+    validator: {
+        $jsonSchema: {
+            bsonType: "object",
+            required: ["memberId", "name", "age", "membershipType"],
+            properties: {
+                memberId: { bsonType: "int" },
+                name: { bsonType: "string" },
+                age: { bsonType: "int", minimum: 5, maximum: 100 },
+                membershipType: { enum: ["Standard", "Premium", "Student"] }
+            }
+        }
+    }
+})
+
+//Borrow Records
+db.createCollection("borrowRecords", {
+    validator: {
+        $jsonSchema: {
+            bsonType: "object",
+            required: ["recordId", "memberId", "isbn", "borrowDate", "returnDate"],
+            properties: {
+                recordId: { bsonType: "int" },
+                memberId: { bsonType: "int" },
+                isbn: { bsonType: "string" },
+                borrowDate: { bsonType: "date" },
+                returnDate: { bsonType: "date" }
+            }
+        }
+    }
+})
+
+//Authors Collection
+db.createCollection("authors", {
+    validator: {
+        $jsonSchema: {
+            bsonType: "object",
+            required: ["authorId", "name", "country"],
+            properties: {
+                authorId: { bsonType: "int" },
+                name: { bsonType: "string" },
+                country: { bsonType: "string" }
+            }
+        }
+    }
+})
+
+b.Insert Sample Documents (10 each)
+db.books.insertMany([
+    { isbn: "B001", title: "MongoDB Basics", authorId: 1, publishedYear: 2020, copiesAvailable: 5 },
+    { isbn: "B002", title: "Node.js in Action", authorId: 2, publishedYear: 2019, copiesAvailable: 3 },
+    { isbn: "B003", title: "Python Programming", authorId: 3, publishedYear: 2021, copiesAvailable: 7 },
+    { isbn: "B004", title: "Java for Beginners", authorId: 4, publishedYear: 2018, copiesAvailable: 4 },
+    { isbn: "B005", title: "Data Structures", authorId: 5, publishedYear: 2022, copiesAvailable: 6 },
+    { isbn: "B006", title: "Algorithms Unlocked", authorId: 5, publishedYear: 2020, copiesAvailable: 2 },
+    { isbn: "B007", title: "Database Systems", authorId: 6, publishedYear: 2017, copiesAvailable: 8 },
+    { isbn: "B008", title: "AI and ML", authorId: 7, publishedYear: 2023, copiesAvailable: 10 },
+    { isbn: "B009", title: "Deep Learning", authorId: 7, publishedYear: 2021, copiesAvailable: 9 },
+    { isbn: "B010", title: "Cloud Computing", authorId: 8, publishedYear: 2019, copiesAvailable: 4 }
+])
+
+db.members.insertMany([
+    { memberId: 1, name: "Alice", age: 25, membershipType: "Premium" },
+    { memberId: 2, name: "Bob", age: 32, membershipType: "Standard" },
+    { memberId: 3, name: "Charlie", age: 19, membershipType: "Student" },
+    { memberId: 4, name: "David", age: 45, membershipType: "Premium" },
+    { memberId: 5, name: "Eve", age: 28, membershipType: "Standard" },
+    { memberId: 6, name: "Frank", age: 35, membershipType: "Standard" },
+    { memberId: 7, name: "Grace", age: 22, membershipType: "Student" },
+    { memberId: 8, name: "Helen", age: 29, membershipType: "Premium" },
+    { memberId: 9, name: "Ivy", age: 31, membershipType: "Standard" },
+    { memberId: 10, name: "Jack", age: 27, membershipType: "Premium" }
+])
+
+db.borrowRecords.insertMany([
+    { recordId: 1, memberId: 1, isbn: "B003", borrowDate: new Date("2025-01-10"), returnDate: new Date("2025-01-20") },
+    { recordId: 2, memberId: 3, isbn: "B001", borrowDate: new Date("2025-01-11"), returnDate: new Date("2025-01-21") },
+    { recordId: 3, memberId: 2, isbn: "B004", borrowDate: new Date("2025-01-12"), returnDate: new Date("2025-01-22") },
+    { recordId: 4, memberId: 5, isbn: "B002", borrowDate: new Date("2025-01-13"), returnDate: new Date("2025-01-23") },
+    { recordId: 5, memberId: 4, isbn: "B005", borrowDate: new Date("2025-01-14"), returnDate: new Date("2025-01-24") },
+    { recordId: 6, memberId: 6, isbn: "B006", borrowDate: new Date("2025-01-15"), returnDate: new Date("2025-01-25") },
+    { recordId: 7, memberId: 8, isbn: "B007", borrowDate: new Date("2025-01-16"), returnDate: new Date("2025-01-26") },
+    { recordId: 8, memberId: 7, isbn: "B008", borrowDate: new Date("2025-01-17"), returnDate: new Date("2025-01-27") },
+    { recordId: 9, memberId: 9, isbn: "B009", borrowDate: new Date("2025-01-18"), returnDate: new Date("2025-01-28") },
+    { recordId: 10, memberId: 10, isbn: "B010", borrowDate: new Date("2025-01-19"), returnDate: new Date("2025-01-29") }
+])
+
+db.authors.insertMany([
+    { authorId: 1, name: "John Doe", country: "USA" },
+    { authorId: 2, name: "Jane Smith", country: "UK" },
+    { authorId: 3, name: "Robert Brown", country: "Canada" },
+    { authorId: 4, name: "Emily Davis", country: "Australia" },
+    { authorId: 5, name: "Michael Wilson", country: "USA" },
+    { authorId: 6, name: "Sarah Johnson", country: "India" },
+    { authorId: 7, name: "David Lee", country: "China" },
+    { authorId: 8, name: "Sophia Martinez", country: "Mexico" },
+    { authorId: 9, name: "Chris White", country: "Germany" },
+    { authorId: 10, name: "Linda Hall", country: "France" }
+])
+
+c.Index Creation
+i.Single-field index 
+// Single-field index on ISBN
+db.books.createIndex({ isbn: 1 })
+
+ii.Compound index
+// Compound index on (memberId, borrowDate)
+db.borrowRecords.createIndex({ memberId: 1, borrowDate: -1 })
+
+iii.Text index
+//Text index for book title searches
+db.books.createIndex({ title: "text" })
+
+iv.Unique index
+// Unique index on memberId
+db.members.createIndex({ memberId: 1 }, { unique: true })
+
+v.Performance Test with explain()
+d.Without Index
+db.books.dropIndexes()
+db.books.find({ isbn: "B007" }).explain("executionStats")
+e.With Index
+db.books.createIndex({ isbn: 1 })
+db.books.find({ isbn: "B007" }).explain("executionStats")
+
+f.Library Database — Additional Indexed Queries
+i.Find books by a specific author quickly
+// Create index on author for fast lookup
+db.books.createIndex({ author: 1 })
+
+// Query to find all books by "George Orwell"
+db.books.find({ author: "George Orwell" }).explain("executionStats")
+
+ii.Search books by title keyword (text index)
+// Create text index on title
+db.books.createIndex({ title: "text" })
+
+// Search for books containing the word "Mockingbird"
+db.books.find({ $text: { $search: "Mockingbird" } }).explain("executionStats")
+
+iii.Find overdue books efficiently
+// Create index on dueDate for borrowings
+db.borrowings.createIndex({ dueDate: 1 })
+
+// Find books that are overdue (before today)
+db.borrowings.find({ dueDate: { $lt: new Date() } }).explain("executionStats")
+
+iv.Get borrowing history of a specific member, sorted by date
+// Create compound index for memberId and borrowDate
+db.borrowings.createIndex({ memberId: 1, borrowDate: -1 })
+
+// Find member's borrowing history
+db.borrowings.find({ memberId: 105 }).sort({ borrowDate: -1 }).explain("executionStats")
+OUTPUT:
+
+Without Index
+
+"executionTimeMillis" : 12,
+"totalDocsExamined" : 500
+
+With Index
+
+"executionTimeMillis" : 1,
+"totalDocsExamined" : 1
+
+Overdue Books
+
+{ bookTitle: 'MongoDB Basics', member: 'Anjali', dueDate: ISODate("2025-02-01") }
+
+Borrowing History
+
+{ member: 'Anjali', book: 'DBMS Concepts', borrowDate: ISODate("2025-01-10") }
+{ member: 'Anjali', book: 'NoSQL Guide', borrowDate: ISODate("2025-01-25") }
+
